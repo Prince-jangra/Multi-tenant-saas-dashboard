@@ -42,10 +42,25 @@ async function run() {
 	const acme = tenants.find(t => t.slug === 'acme');
 	const globex = tenants.find(t => t.slug === 'globex');
 
-	await User.insertMany([
-		{ tenantId: acme._id, email: 'alice@acme.com', name: 'Alice' },
-		{ tenantId: globex._id, email: 'gary@globex.com', name: 'Gary' }
-	]);
+	// Create users with passwords (will be hashed by pre-save hook)
+	const alice = new User({ 
+		tenantId: acme._id, 
+		email: 'alice@acme.com', 
+		name: 'Alice',
+		password: 'password123', // Will be hashed automatically
+		role: 'admin' // Make Alice an admin
+	});
+	await alice.save();
+	console.log('Created user: alice@acme.com / password123 (admin)');
+
+	const gary = new User({ 
+		tenantId: globex._id, 
+		email: 'gary@globex.com', 
+		name: 'Gary',
+		password: 'password123' // Will be hashed automatically
+	});
+	await gary.save();
+	console.log('Created user: gary@globex.com / password123');
 
 	await Resource.insertMany([
 		{ tenantId: acme._id, title: 'Acme Guide', content: 'Welcome Acme users' },

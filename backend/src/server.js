@@ -8,6 +8,8 @@ import { tenantContextMiddleware } from './middleware/tenantContext.js';
 import resourcesRouter from './routes/resources.js';
 import tenantsRouter from './routes/tenants.js';
 import themesRouter from './routes/themes.js';
+import authRouter from './routes/auth.js';
+import usersRouter from './routes/users.js';
 
 dotenv.config();
 
@@ -46,6 +48,8 @@ app.get('/api/health', (req, res) => {
 	res.json({ status: 'ok', tenant: req.tenant?.slug || null });
 });
 
+app.use('/api/auth', authRouter);
+app.use('/api/users', usersRouter);
 app.use('/api/resources', resourcesRouter);
 app.use('/api/tenants', tenantsRouter);
 app.use('/api/themes', themesRouter);

@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import Resource from '../models/Resource.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
+
+// Protect all routes with authentication
+router.use(authMiddleware);
 
 router.get('/', async (req, res, next) => {
 	try {
