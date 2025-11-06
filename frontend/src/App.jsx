@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import './styles.css'
+import Login from './components/Login.jsx'
+import UserManagement from './components/UserManagement.jsx'
+import TenantSelection from './components/TenantSelection.jsx'
+import Dashboard from './components/Dashboard.jsx'
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:4000'
 
@@ -31,9 +35,10 @@ function useTenantSlug() {
   return [slug, setSlug]
 }
 
-async function fetchJSON(url, { tenant, ...opts } = {}) {
+async function fetchJSON(url, { tenant, token, ...opts } = {}) {
   const headers = new Headers(opts.headers || {})
   if (tenant) headers.set('X-Tenant-ID', tenant)
+  if (token) headers.set('Authorization', `Bearer ${token}`)
   const res = await fetch(url, { ...opts, headers, credentials: 'include' })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
@@ -41,12 +46,46 @@ async function fetchJSON(url, { tenant, ...opts } = {}) {
 
 export default function App() {
   const [tenant, setTenant] = useTenantSlug()
+  const [user, setUser] = useState(null)
   const [me, setMe] = useState(null)
   const [resources, setResources] = useState([])
   const [creating, setCreating] = useState(false)
   const [form, setForm] = useState({ title: '', content: '' })
   const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [currentView, setCurrentView] = useState('dashboard') // 'dashboard' or 'users'
   const themeHref = useMemo(() => `${API_BASE}/api/themes/current.css`, [])
+
+  // Check authentication on mount and when tenant changes
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!tenant) {
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      const token = localStorage.getItem('token')
+      if (!token) {
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      try {
+        const data = await fetchJSON(`${API_BASE}/api/auth/me`, { tenant, token })
+        setUser(data.user)
+      } catch (err) {
+        console.error('Auth check failed:', err)
+        localStorage.removeItem('token')
+        setUser(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkAuth()
+  }, [tenant])
 
   useEffect(() => {
     if (!tenant) return
@@ -70,12 +109,12 @@ export default function App() {
   }, [tenant])
 
   useEffect(() => {
-    setError(null)
-    if (!tenant) {
+    if (!tenant || !user) {
       setMe(null)
       return
     }
-    fetchJSON(`${API_BASE}/api/tenants/me`, { tenant })
+    setError(null)
+    fetchJSON(`${API_BASE}/api/tenants/me`, { tenant, token: localStorage.getItem('token') })
       .then((data) => {
         console.log('Tenant data:', data)
         setMe(data)
@@ -86,24 +125,32 @@ export default function App() {
         setMe(null)
         setError(`Tenant "${tenant}" not found. Make sure you've run: npm run seed (in backend folder)`)
       })
-  }, [tenant])
+  }, [tenant, user])
 
   useEffect(() => {
-    fetchJSON(`${API_BASE}/api/resources`, { tenant })
+    if (!tenant || !user) {
+      setResources([])
+      return
+    }
+    const token = localStorage.getItem('token')
+    fetchJSON(`${API_BASE}/api/resources`, { tenant, token })
       .then(setResources)
       .catch(() => setResources([]))
-  }, [tenant])
+  }, [tenant, user])
 
   async function createResource(e) {
     e.preventDefault()
     if (!tenant) return alert('Set a tenant first (e.g. acme)')
+    if (!user) return alert('Please login first')
     setCreating(true)
     try {
+      const token = localStorage.getItem('token')
       const res = await fetchJSON(`${API_BASE}/api/resources`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
-        tenant
+        tenant,
+        token
       })
       setResources(prev => [res, ...prev])
       setForm({ title: '', content: '' })
@@ -112,69 +159,78 @@ export default function App() {
     } finally { setCreating(false) }
   }
 
-  return (
-    <div className="app-shell">
-      <div className="topbar">
-        {me?.brand?.logoUrl ? (
-          <img 
-            src={me.brand.logoUrl} 
-            alt={me.name} 
-            className="logo-img"
-            onError={(e) => {
-              console.error('Logo failed to load:', me.brand.logoUrl)
-              e.target.style.display = 'none'
-              const fallback = e.target.nextElementSibling
-              if (fallback) fallback.style.display = 'block'
-            }}
-          />
-        ) : null}
-        {!me?.brand?.logoUrl && <div className="logo" />}
-        <div className="brand-title">{me ? me.name : 'Multi-tenant SaaS'}</div>
-        <div className="brand-sub">{me ? `(${me.slug})` : 'select a tenant'}</div>
-        <div className="spacer" />
-        <TenantSwitcher tenant={tenant} onChange={setTenant} />
+  const handleLogin = (userData) => {
+    setUser(userData)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+    } catch (err) {
+      console.error('Logout error:', err)
+    }
+    localStorage.removeItem('token')
+    setUser(null)
+    setResources([])
+  }
+
+  // Show login page if not authenticated
+  if (loading) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: '#0f0f1e',
+        color: '#fff'
+      }}>
+        Loading...
       </div>
+    )
+  }
 
-      <main className="container">
-        {error && (
-          <div className="panel" style={{marginBottom:16, background:'#fee2e2', borderColor:'#fca5a5', color:'#991b1b'}}>
-            <strong>Error:</strong> {error}
-          </div>
-        )}
-        
-        <div className="hstack" style={{marginBottom:12}}>
-          <h2 style={{margin:'6px 0'}}>Resources</h2>
-          {me && <span className="badge">{me.slug}</span>}
-        </div>
+  if (!tenant) {
+    return (
+      <TenantSelection onSelectTenant={(slug) => {
+        setTenant(slug);
+        window.location.href = `/t/${slug}/`;
+      }} />
+    )
+  }
 
-        <div className="panel" style={{marginBottom:16}}>
-          <form className="form" onSubmit={createResource}>
-            <div className="row">
-              <input className="input" placeholder="Title" value={form.title} onChange={e=>setForm(f=>({...f, title:e.target.value}))} required />
-              <input className="input" placeholder="Content" value={form.content} onChange={e=>setForm(f=>({...f, content:e.target.value}))} />
-            </div>
-            <div className="hstack">
-              <button className="btn" disabled={creating}>Add Resource</button>
-            </div>
-          </form>
-        </div>
+  if (!user) {
+    return <Login onLogin={handleLogin} tenant={tenant} />
+  }
 
-        {resources.length === 0 ? (
-          <div className="panel">
-            <div className="muted">No resources yet. Create your first resource above.</div>
-          </div>
-        ) : (
-          <div className="grid">
-            {resources.map(r => (
-              <div key={r._id} className="card">
-                <h4>{r.title}</h4>
-                <div className="muted">{r.content || '—'}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+  // Show User Management if that's the current view
+  if (currentView === 'users') {
+    return (
+      <UserManagement 
+        tenant={tenant} 
+        currentUser={user}
+        onBack={() => setCurrentView('dashboard')}
+      />
+    )
+  }
+
+  // Show Dashboard
+  return (
+    <Dashboard
+      tenant={tenant}
+      user={user}
+      me={me}
+      resources={resources}
+      creating={creating}
+      form={form}
+      setForm={setForm}
+      createResource={createResource}
+      onUserManagement={() => setCurrentView('users')}
+      onLogout={handleLogout}
+    />
   )
 }
 
@@ -217,5 +273,3 @@ function TenantSwitcher({ tenant, onChange }) {
     </div>
   )
 }
-
-
