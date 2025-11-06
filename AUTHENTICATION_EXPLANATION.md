@@ -21,20 +21,21 @@ The User model stores user information with password hashing:
 ```
 
 **Key Features:**
+
 - **Password Hashing**: Uses `bcrypt` with 10 salt rounds
 - **Pre-save Hook**: Automatically hashes password before saving to database
 - **Password Comparison**: Method to compare plain password with hashed password
 
 ```javascript
 // Password is automatically hashed when user is created
-UserSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+UserSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
 
 // Method to verify password
-UserSchema.methods.comparePassword = async function(candidatePassword) {
+UserSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 ```
@@ -44,6 +45,7 @@ UserSchema.methods.comparePassword = async function(candidatePassword) {
 This middleware protects routes by verifying JWT tokens:
 
 **How it works:**
+
 1. Extracts token from `Authorization` header or cookie
 2. Verifies token using JWT_SECRET
 3. Fetches user from database
@@ -59,6 +61,7 @@ This middleware protects routes by verifying JWT tokens:
 ```
 
 **Security Features:**
+
 - Token expiration (7 days)
 - Tenant isolation (users can only access their tenant's data)
 - Invalid token handling
@@ -66,7 +69,9 @@ This middleware protects routes by verifying JWT tokens:
 ### 3. **Auth Routes** (`backend/src/routes/auth.js`)
 
 #### **POST /api/auth/register**
+
 Creates a new user account:
+
 1. Validates tenant exists
 2. Checks if email already exists in tenant
 3. Creates user (password auto-hashed)
@@ -75,7 +80,9 @@ Creates a new user account:
 6. Returns user data and token
 
 #### **POST /api/auth/login**
+
 Authenticates existing user:
+
 1. Validates tenant exists
 2. Finds user by email and tenant
 3. Compares password using bcrypt
@@ -84,17 +91,22 @@ Authenticates existing user:
 6. Returns user data and token
 
 #### **GET /api/auth/me**
+
 Gets current authenticated user (requires token):
+
 - Uses `authMiddleware` to verify token
 - Returns user information
 
 #### **POST /api/auth/logout**
+
 Logs out user:
+
 - Clears the token cookie
 
 ### 4. **Frontend Authentication** (`frontend/src/components/Login.jsx`)
 
 **Login Flow:**
+
 1. User enters email and password
 2. Frontend sends POST request to `/api/auth/login`
 3. Includes `X-Tenant-ID` header with tenant slug
@@ -106,6 +118,7 @@ Logs out user:
 7. Redirects to dashboard
 
 **Registration Flow:**
+
 - Similar to login, but also requires name
 - Creates new user account
 
@@ -117,7 +130,7 @@ Routes that require authentication use `authMiddleware`:
 // Example: Resources route
 router.use(authMiddleware); // All routes below require auth
 
-router.get('/', async (req, res) => {
+router.get("/", async (req, res) => {
   // req.user is available here (set by authMiddleware)
   // Can access: req.user._id, req.user.email, req.user.role, etc.
 });
@@ -139,22 +152,26 @@ router.get('/', async (req, res) => {
 ## Security Features
 
 ### 1. **Password Security**
+
 - ✅ Passwords never stored in plain text
 - ✅ bcrypt hashing with 10 salt rounds
 - ✅ Passwords cannot be retrieved (only compared)
 
 ### 2. **Token Security**
+
 - ✅ Tokens expire after 7 days
 - ✅ Signed with secret key
 - ✅ Stored in HTTP-only cookies (prevents XSS)
 - ✅ Also available in localStorage for frontend use
 
 ### 3. **Tenant Isolation**
+
 - ✅ Users can only access their tenant's data
 - ✅ Tenant validation on every request
 - ✅ Prevents cross-tenant access
 
 ### 4. **Role-Based Access**
+
 - ✅ Admin and User roles
 - ✅ Admin middleware for admin-only routes
 - ✅ Role checks in frontend and backend
@@ -197,9 +214,9 @@ router.get('/', async (req, res) => {
 ### Backend: Protect a Route
 
 ```javascript
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware } from "../middleware/auth.js";
 
-router.get('/protected', authMiddleware, async (req, res) => {
+router.get("/protected", authMiddleware, async (req, res) => {
   // req.user is available
   res.json({ message: `Hello ${req.user.name}` });
 });
@@ -208,13 +225,13 @@ router.get('/protected', authMiddleware, async (req, res) => {
 ### Frontend: Make Authenticated Request
 
 ```javascript
-const token = localStorage.getItem('token');
+const token = localStorage.getItem("token");
 const response = await fetch(`${API_BASE}/api/resources`, {
   headers: {
-    'Authorization': `Bearer ${token}`,
-    'X-Tenant-ID': tenant
+    Authorization: `Bearer ${token}`,
+    "X-Tenant-ID": tenant,
   },
-  credentials: 'include'
+  credentials: "include",
 });
 ```
 
@@ -223,22 +240,22 @@ const response = await fetch(`${API_BASE}/api/resources`, {
 ```javascript
 // In App.jsx
 useEffect(() => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem("token");
   if (token) {
     // Verify token is still valid
     fetch(`${API_BASE}/api/auth/me`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'X-Tenant-ID': tenant
-      }
+        Authorization: `Bearer ${token}`,
+        "X-Tenant-ID": tenant,
+      },
     })
-    .then(res => res.json())
-    .then(data => setUser(data.user))
-    .catch(() => {
-      // Token invalid, clear it
-      localStorage.removeItem('token');
-      setUser(null);
-    });
+      .then((res) => res.json())
+      .then((data) => setUser(data.user))
+      .catch(() => {
+        // Token invalid, clear it
+        localStorage.removeItem("token");
+        setUser(null);
+      });
   }
 }, [tenant]);
 ```
@@ -248,11 +265,13 @@ useEffect(() => {
 After running `npm run seed` in the backend:
 
 **Acme Tenant:**
+
 - Email: `alice@acme.com`
 - Password: `password123`
 - Role: Admin
 
 **Globex Tenant:**
+
 - Email: `gary@globex.com`
 - Password: `password123`
 - Role: User
@@ -274,4 +293,3 @@ After running `npm run seed` in the backend:
 5. ✅ Input validation
 6. ✅ Error handling without exposing sensitive info
 7. ✅ Role-based access control
-
