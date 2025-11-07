@@ -24,27 +24,12 @@ cd backend
 npm install
 ```
 
-3. Set up environment variables (create `.env` file):
-```env
-MONGODB_URI=mongodb://127.0.0.1:27017/multitenant_saas
-JWT_SECRET=your-secret-key-change-in-production
-PORT=4000
-HOST=localhost
-ALLOWED_ORIGINS=http://localhost:5173
-```
-
-4. Seed the database with sample data:
+3. Seed the database with sample data:
 ```bash
 npm run seed
 ```
 
-This will create:
-- Two tenants: `acme` and `globex`
-- Test users:
-  - `alice@acme.com` / `password123` (for acme tenant)
-  - `gary@globex.com` / `password123` (for globex tenant)
-
-5. Start the backend server:
+4. Start the backend server:
 ```bash
 npm run dev
 ```
@@ -78,10 +63,7 @@ The frontend will be available at `http://localhost:5173`
 ## Usage
 
 1. **Select a Tenant**: Enter a tenant slug (e.g., `acme` or `globex`) in the tenant switcher
-2. **Login**: Use the test credentials:
-   - For Acme: `alice@acme.com` / `password123`
-   - For Globex: `gary@globex.com` / `password123`
-3. **Access Dashboard**: After logging in, you'll have access to the resources dashboard
+2. **Access Dashboard**: After logging in, you'll have access to the resources dashboard
 
 ## API Endpoints
 
